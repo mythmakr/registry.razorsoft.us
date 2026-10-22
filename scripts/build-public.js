@@ -5,7 +5,7 @@ import { containsPrivateKey, renderIndex, renderItem } from "../src/catalog.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-export async function buildPublicRegistry(catalogPath = path.join(root, "data", "catalog.json"), outputDirectory = path.join(root, "public", "r")) {
+export async function buildPublicRegistry(catalogPath = path.join(root, "data", "catalog.json"), outputDirectory = path.join(root, "dist", "r")) {
   const catalog = JSON.parse(await readFile(catalogPath, "utf8"));
   if (containsPrivateKey(catalog)) {
     throw new Error("The catalog contains private repository information.");
