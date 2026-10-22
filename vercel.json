@@ -1,7 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "",
-  "outputDirectory": "public",
-  "cleanUrls": true
+  "buildCommand": "npm test && npm run build",
+  "functions": {
+    "api/registry.js": {
+      "includeFiles": "data/catalog.json"
+    }
+  },
+  "rewrites": [
+    { "source": "/r/registry.json", "destination": "/api/registry" },
+    { "source": "/r/:name/:version.json", "destination": "/api/registry?name=:name&version=:version" },
+    { "source": "/r/:name.json", "destination": "/api/registry?name=:name" }
+  ]
 }

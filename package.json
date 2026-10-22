@@ -1,6 +1,14 @@
 {
   "name": "registry.razorsoft.us",
   "private": true,
+  "type": "module",
   "description": "Public RazorSoft component registry served at https://registry.razorsoft.us. OpsLedger is the publishing control plane.",
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "test": "node --test",
+    "build": "node scripts/build-public.js"
+  }
 }
