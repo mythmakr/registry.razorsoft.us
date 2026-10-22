@@ -1,0 +1,6 @@
+{
+  "name": "registry.razorsoft.us",
+  "private": true,
+  "description": "Public RazorSoft component registry served at https://registry.razorsoft.us. OpsLedger is the publishing control plane.",
+  "license": "MIT"
+}
