@@ -14,9 +14,15 @@ OpsLedger remains the management and publishing control plane. This deployment s
 
 ## Public routes
 
+- `GET /` — catalog homepage
+- `GET /components` — searchable component catalog
+- `GET /products/<product>` — published components for one product
+- `GET /components/<name>` — component details, install command, dependencies, and versions
 - `GET /r/registry.json` — shadcn registry index of the current snapshots
 - `GET /r/<name>.json` — the current public registry item
 - `GET /r/<name>/<version>.json` — one retained snapshot
+
+The HTML catalog is generated at build time from `data/catalog.json`. It is not a second component list. Registry JSON is still served by the publication API, not by the static catalog files.
 
 The index lists the current snapshots in the committed catalog. An empty catalog produces an empty index. A route returns the snapshot stored in this deployment, so the public registry stays available when OpsLedger is offline.
 
@@ -78,5 +84,7 @@ Vercel project: `registry.razorsoft.us`.
 - Production domain: `registry.razorsoft.us`
 - Framework: none
 - Build: `npm test && npm run build`
+- Static output: `dist/site`
+- Checks: `npm test`, `npm run lint`, `npm run typecheck`
 
 Do not point the production domain at OpsLedger. OpsLedger does not serve this registry.

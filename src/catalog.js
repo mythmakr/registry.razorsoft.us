@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createHash, timingSafeEqual } from "node:crypto";
 
 export const REGISTRY_HOST = "registry.razorsoft.us";

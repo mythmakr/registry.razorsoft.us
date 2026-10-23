@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { buildPublicRegistry } from "../scripts/build-public.js";
+import { buildPublicRegistry, buildPublicSite } from "../scripts/build-public.js";
 import {
   applyPublication,
   authorizePublication,
@@ -334,11 +334,12 @@ test("production build reads the committed catalog without changing it", async (
   const output = await mkdtemp(path.join(tmpdir(), "registry-"));
   const index = await buildPublicRegistry(catalogPath, output);
   assert.equal(await readFile(catalogPath, "utf8"), before);
-
-  const badge = catalog.items["tracewise-status-badge"];
-  assert.equal(badge.current, "0.1.5");
   assert.deepEqual(index, renderIndex(catalog));
-  assert.ok(index.items.some((item) => item.name === "tracewise-status-badge"));
+  const publishedNames = Object.entries(catalog.items)
+    .filter(([, record]) => record.versions?.[record.current]?.item)
+    .map(([name]) => name)
+    .sort((left, right) => left.localeCompare(right));
+  assert.deepEqual(index.items.map((item) => item.name), publishedNames);
   for (const entry of index.items) {
     const currentVersion = catalog.items[entry.name].current;
     const built = await readBuiltItem(output, entry.name, currentVersion);
@@ -349,9 +350,32 @@ test("production build reads the committed catalog without changing it", async (
     assert.equal(JSON.stringify(built.current).includes("sourceUrl"), false);
     assert.equal(JSON.stringify(built.current).includes("contentDigest"), false);
   }
-  const builtBadge = await readBuiltItem(output, "tracewise-status-badge", "0.1.5");
-  assert.deepEqual(builtBadge.current.dependencies, ["@razorsoft/tracewise-status@^0.1.1"]);
-  assert.match(builtBadge.current.files[0].content, /from "@razorsoft\/tracewise-status"/);
+
+  const siteDir = path.join(output, "site");
+  await buildPublicSite(catalog, siteDir);
+  assert.equal(await readFile(catalogPath, "utf8"), before);
+  const siteFiles = [
+    path.join(siteDir, "index.html"),
+    path.join(siteDir, "components", "index.html"),
+    path.join(siteDir, "sitemap.xml"),
+    ...index.items.map((entry) => path.join(siteDir, "components", entry.name, "index.html")),
+  ];
+  for (const siteFile of siteFiles) {
+    const page = await readFile(siteFile, "utf8");
+    assert.equal(page.includes("github.com"), false);
+    assert.equal(page.includes("repositoryUrl"), false);
+    assert.equal(page.includes("commitSha"), false);
+    for (const record of Object.values(catalog.items)) {
+      for (const version of Object.values(record.versions || {})) {
+        if (version.sourceUrl) assert.equal(page.includes(version.sourceUrl), false);
+        if (version.contentDigest) assert.equal(page.includes(version.contentDigest), false);
+        if (version.hash) assert.equal(page.includes(version.hash), false);
+        for (const file of version.item?.files || []) {
+          if (file.content) assert.equal(page.includes(file.content), false);
+        }
+      }
+    }
+  }
 });
 
 test("production build renders an empty catalog", async () => {

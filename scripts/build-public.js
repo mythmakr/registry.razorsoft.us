@@ -1,7 +1,8 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { containsPrivateKey, renderIndex, renderItem } from "../src/catalog.js";
+import { FAVICON_SVG, renderSite } from "../src/site.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -27,7 +28,33 @@ export async function buildPublicRegistry(catalogPath = path.join(root, "data", 
   return index;
 }
 
+/**
+ * @param {{ items?: Record<string, unknown> } | null | undefined} catalog
+ * @param {string} outputDirectory
+ * @param {string} [assetDirectory]
+ */
+export async function buildPublicSite(catalog, outputDirectory, assetDirectory = path.join(root, "src")) {
+  if (containsPrivateKey(catalog)) {
+    throw new Error("The catalog contains private repository information.");
+  }
+  const pages = renderSite(catalog);
+  for (const [relativePath, contents] of pages) {
+    const destination = path.join(outputDirectory, relativePath);
+    await mkdir(path.dirname(destination), { recursive: true });
+    await writeFile(destination, contents);
+  }
+  const assets = path.join(outputDirectory, "assets");
+  await mkdir(assets, { recursive: true });
+  await copyFile(path.join(assetDirectory, "site.css"), path.join(assets, "catalog.css"));
+  await copyFile(path.join(assetDirectory, "site-client.js"), path.join(assets, "catalog.js"));
+  await writeFile(path.join(outputDirectory, "favicon.svg"), FAVICON_SVG);
+  return pages;
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const index = await buildPublicRegistry();
-  console.log(`Built ${index.items.length} registry item${index.items.length === 1 ? "" : "s"}.`);
+  const catalogPath = path.join(root, "data", "catalog.json");
+  const index = await buildPublicRegistry(catalogPath);
+  const catalog = JSON.parse(await readFile(catalogPath, "utf8"));
+  const pages = await buildPublicSite(catalog, path.join(root, "dist", "site"));
+  console.log(`Built ${index.items.length} registry item${index.items.length === 1 ? "" : "s"} and ${pages.size} catalog files.`);
 }
