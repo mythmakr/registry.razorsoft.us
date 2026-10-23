@@ -115,6 +115,35 @@
           "sourceUrl": "https://www.tracewise.dev/r/tracewise-uptime-history.json"
         }
       }
+    },
+    "tracewise-incident-list": {
+      "current": "0.1.5",
+      "versions": {
+        "0.1.5": {
+          "version": "0.1.5",
+          "publishedAt": "2026-10-23T12:00:11.082Z",
+          "hash": "29cc7d1fb77c3ddced3d438678af640437e1cd34a31932ff5752a9dd1e60e635",
+          "item": {
+            "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+            "name": "tracewise-incident-list",
+            "type": "registry:component",
+            "title": "TraceWise Incident List",
+            "files": [
+              {
+                "path": "registry/default/tracewise-incident-list/tracewise-incident-list.tsx",
+                "type": "registry:component",
+                "content": "\"use client\";\n\nimport {\n  TraceWiseIncidentList as TraceWiseIncidentListBase,\n  type TraceWiseIncidentListProps,\n} from \"@razorsoft/tracewise-status\";\n\nexport type { TraceWiseIncidentListProps };\n\n/**\n * Recent incidents for a public TraceWise status page.\n * Fetches once. No API key. Polling stays off unless `refreshInterval` is set.\n */\nexport function TraceWiseIncidentList({\n  className,\n  ...props\n}: TraceWiseIncidentListProps) {\n  return <TraceWiseIncidentListBase {...props} className={className} />;\n}\n"
+              }
+            ],
+            "description": "Recent incidents for a public TraceWise status page. React component from @razorsoft/tracewise-status. The same list is in @razorsoft/tracewise-status-js and the HTML embed. No API key.",
+            "dependencies": [
+              "@razorsoft/tracewise-status@^0.1.4"
+            ]
+          },
+          "contentDigest": "8f47a03d6dc5dc932bb62642fc33fa7e9d2bc91692776c9e3af16f50e33a565e",
+          "sourceUrl": "https://www.tracewise.dev/r/tracewise-incident-list.json"
+        }
+      }
     }
   }
 }
