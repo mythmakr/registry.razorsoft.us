@@ -86,6 +86,35 @@
           "sourceUrl": "https://www.tracewise.dev/r/tracewise-status-card.json"
         }
       }
+    },
+    "tracewise-uptime-history": {
+      "current": "0.1.5",
+      "versions": {
+        "0.1.5": {
+          "version": "0.1.5",
+          "publishedAt": "2026-10-23T11:59:19.036Z",
+          "hash": "0954ed05b2295f2c75f69e011addfe11d685cb459918bb2d99a59e90ae774121",
+          "item": {
+            "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+            "name": "tracewise-uptime-history",
+            "type": "registry:component",
+            "title": "TraceWise Uptime History",
+            "files": [
+              {
+                "path": "registry/default/tracewise-uptime-history/tracewise-uptime-history.tsx",
+                "type": "registry:component",
+                "content": "\"use client\";\n\nimport {\n  TraceWiseUptimeHistory,\n  type TraceWiseUptimeHistoryProps,\n} from \"@razorsoft/tracewise-status\";\n\nexport type TraceWiseUptimeHistoryBarProps = TraceWiseUptimeHistoryProps;\n\n/**\n * Daily uptime history bar for a public TraceWise status page.\n * Fetches once. No API key. Polling stays off unless `refreshInterval` is set.\n */\nexport function TraceWiseUptimeHistoryBar({\n  className,\n  ...props\n}: TraceWiseUptimeHistoryBarProps) {\n  return <TraceWiseUptimeHistory {...props} className={className} />;\n}\n"
+              }
+            ],
+            "description": "Daily uptime history bar for a public TraceWise status page. React component from @razorsoft/tracewise-status. The same bar is in @razorsoft/tracewise-status-js and the HTML embed. No API key.",
+            "dependencies": [
+              "@razorsoft/tracewise-status@^0.1.3"
+            ]
+          },
+          "contentDigest": "7a0142ed7359ad40aa217c918d8d1c95c0a937f519648e30cdfc845d20c83b51",
+          "sourceUrl": "https://www.tracewise.dev/r/tracewise-uptime-history.json"
+        }
+      }
     }
   }
 }
