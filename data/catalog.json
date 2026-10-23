@@ -57,6 +57,35 @@
           "sourceUrl": "https://www.tracewise.dev/r/tracewise-status-indicator.json"
         }
       }
+    },
+    "tracewise-status-card": {
+      "current": "0.1.5",
+      "versions": {
+        "0.1.5": {
+          "version": "0.1.5",
+          "publishedAt": "2026-10-23T11:57:58.776Z",
+          "hash": "5b50ad3b47e984ce8c132e14107d201fdeed06a9a05c28119df7466d3d4aaa78",
+          "item": {
+            "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+            "name": "tracewise-status-card",
+            "type": "registry:component",
+            "title": "TraceWise Status Card",
+            "files": [
+              {
+                "path": "registry/default/tracewise-status-card/tracewise-status-card.tsx",
+                "type": "registry:component",
+                "content": "\"use client\";\n\nimport {\n  TraceWiseStatus,\n  type TraceWiseStatusProps,\n} from \"@razorsoft/tracewise-status\";\n\nexport type TraceWiseStatusCardProps = Omit<TraceWiseStatusProps, \"variant\">;\n\n/**\n * TraceWise status card with optional 24h uptime.\n * Fetches the public status page once. No API key. Polling stays off unless `refreshInterval` is set.\n */\nexport function TraceWiseStatusCard({\n  className,\n  ...props\n}: TraceWiseStatusCardProps) {\n  return <TraceWiseStatus {...props} className={className} variant=\"card\" />;\n}\n"
+              }
+            ],
+            "description": "Live status card for a public TraceWise status page, with optional 24h uptime. React component from @razorsoft/tracewise-status. The same card is in @razorsoft/tracewise-status-js and the HTML embed. No API key.",
+            "dependencies": [
+              "@razorsoft/tracewise-status@^0.1.1"
+            ]
+          },
+          "contentDigest": "e0861f82f4e775c97dfcd3ce1febb95006b80422548f8128f12f181d4b7511b1",
+          "sourceUrl": "https://www.tracewise.dev/r/tracewise-status-card.json"
+        }
+      }
     }
   }
 }
