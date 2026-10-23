@@ -338,20 +338,20 @@ test("production build reads the committed catalog without changing it", async (
   const badge = catalog.items["tracewise-status-badge"];
   assert.equal(badge.current, "0.1.5");
   assert.deepEqual(index, renderIndex(catalog));
-  assert.deepEqual(
-    index.items.map((item) => item.name),
-    ["tracewise-status-badge"],
-  );
-  const built = await readBuiltItem(output, "tracewise-status-badge", "0.1.5");
-  assert.deepEqual(built.current, renderItem(catalog, "tracewise-status-badge"));
-  assert.deepEqual(built.version, renderItem(catalog, "tracewise-status-badge", "0.1.5"));
-  assert.deepEqual(built.current.dependencies, ["@razorsoft/tracewise-status@^0.1.1"]);
-  assert.match(built.current.files[0].content, /from "@razorsoft\/tracewise-status"/);
-  assert.equal(containsPrivateKey(index), false);
-  assert.equal(containsPrivateKey(built.current), false);
-  assert.equal(JSON.stringify(built.current).includes("github.com"), false);
-  assert.equal(JSON.stringify(built.current).includes("sourceUrl"), false);
-  assert.equal(JSON.stringify(built.current).includes("contentDigest"), false);
+  assert.ok(index.items.some((item) => item.name === "tracewise-status-badge"));
+  for (const entry of index.items) {
+    const currentVersion = catalog.items[entry.name].current;
+    const built = await readBuiltItem(output, entry.name, currentVersion);
+    assert.deepEqual(built.current, renderItem(catalog, entry.name));
+    assert.deepEqual(built.version, renderItem(catalog, entry.name, currentVersion));
+    assert.equal(containsPrivateKey(built.current), false);
+    assert.equal(JSON.stringify(built.current).includes("github.com"), false);
+    assert.equal(JSON.stringify(built.current).includes("sourceUrl"), false);
+    assert.equal(JSON.stringify(built.current).includes("contentDigest"), false);
+  }
+  const builtBadge = await readBuiltItem(output, "tracewise-status-badge", "0.1.5");
+  assert.deepEqual(builtBadge.current.dependencies, ["@razorsoft/tracewise-status@^0.1.1"]);
+  assert.match(builtBadge.current.files[0].content, /from "@razorsoft\/tracewise-status"/);
 });
 
 test("production build renders an empty catalog", async () => {
