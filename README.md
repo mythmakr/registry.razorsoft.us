@@ -18,7 +18,7 @@ OpsLedger remains the management and publishing control plane. This deployment s
 - `GET /r/<name>.json` — the current public registry item
 - `GET /r/<name>/<version>.json` — one retained snapshot
 
-The index starts empty. A route returns the snapshot stored in this deployment, so the public registry stays available when OpsLedger is offline.
+The index lists the current snapshots in the committed catalog. An empty catalog produces an empty index. A route returns the snapshot stored in this deployment, so the public registry stays available when OpsLedger is offline.
 
 ## Publication contract
 

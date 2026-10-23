@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -273,13 +273,165 @@ test("github storage refuses private repository fields", async () => {
   await assert.rejects(() => store.writeCatalog({ items: {}, repositoryUrl }));
 });
 
-test("production build writes the empty public index", async () => {
-  const output = await mkdtemp(path.join(tmpdir(), "registry-"));
-  const index = await buildPublicRegistry(path.join(root, "data", "catalog.json"), output);
+function catalogRecord(versions, current) {
+  return {
+    current,
+    versions: Object.fromEntries(versions.map((version) => [version.version, version])),
+  };
+}
+
+function storedVersion(name, version, title) {
+  return {
+    version,
+    publishedAt: "2026-10-23T00:00:00.000Z",
+    hash: "a".repeat(64),
+    item: {
+      $schema: "https://ui.shadcn.com/schema/registry-item.json",
+      name,
+      type: "registry:component",
+      title,
+      description: `${title} description`,
+      dependencies: ["@razorsoft/example@1.0.0"],
+      files: [
+        {
+          path: `registry/${name}.tsx`,
+          type: "registry:component",
+          content: `export const value = ${JSON.stringify(version)};\n`,
+        },
+      ],
+    },
+  };
+}
+
+async function buildFixture(catalog) {
+  const directory = await mkdtemp(path.join(tmpdir(), "registry-"));
+  const catalogPath = path.join(directory, "catalog.json");
+  const output = path.join(directory, "public");
+  const source = `${JSON.stringify(catalog, null, 2)}\n`;
+  await writeFile(catalogPath, source);
+  const index = await buildPublicRegistry(catalogPath, output);
+  assert.equal(await readFile(catalogPath, "utf8"), source);
   const written = JSON.parse(await readFile(path.join(output, "registry.json"), "utf8"));
-  assert.deepEqual(index.items, []);
   assert.equal(written.name, "registry.razorsoft.us");
-  assert.deepEqual(written.items, []);
+  assert.deepEqual(written.items, index.items);
+  assert.equal(containsPrivateKey(written), false);
+  return { output, index, written };
+}
+
+async function readBuiltItem(output, name, version) {
+  const currentPath = path.join(output, `${name}.json`);
+  const versionPath = path.join(output, name, `${version}.json`);
+  return {
+    current: JSON.parse(await readFile(currentPath, "utf8")),
+    version: JSON.parse(await readFile(versionPath, "utf8")),
+  };
+}
+
+test("production build reads the committed catalog without changing it", async () => {
+  const catalogPath = path.join(root, "data", "catalog.json");
+  const before = await readFile(catalogPath, "utf8");
+  const catalog = JSON.parse(before);
+  const output = await mkdtemp(path.join(tmpdir(), "registry-"));
+  const index = await buildPublicRegistry(catalogPath, output);
+  assert.equal(await readFile(catalogPath, "utf8"), before);
+
+  const badge = catalog.items["tracewise-status-badge"];
+  assert.equal(badge.current, "0.1.5");
+  assert.deepEqual(index, renderIndex(catalog));
+  assert.deepEqual(
+    index.items.map((item) => item.name),
+    ["tracewise-status-badge"],
+  );
+  const built = await readBuiltItem(output, "tracewise-status-badge", "0.1.5");
+  assert.deepEqual(built.current, renderItem(catalog, "tracewise-status-badge"));
+  assert.deepEqual(built.version, renderItem(catalog, "tracewise-status-badge", "0.1.5"));
+  assert.deepEqual(built.current.dependencies, ["@razorsoft/tracewise-status@^0.1.1"]);
+  assert.match(built.current.files[0].content, /from "@razorsoft\/tracewise-status"/);
+  assert.equal(containsPrivateKey(index), false);
+  assert.equal(containsPrivateKey(built.current), false);
+  assert.equal(JSON.stringify(built.current).includes("github.com"), false);
+  assert.equal(JSON.stringify(built.current).includes("sourceUrl"), false);
+  assert.equal(JSON.stringify(built.current).includes("contentDigest"), false);
+});
+
+test("production build renders an empty catalog", async () => {
+  const { index } = await buildFixture(emptyCatalog());
+  assert.deepEqual(index.items, []);
+});
+
+test("production build renders one component and its current snapshot", async () => {
+  const version = storedVersion("status-badge", "1.0.0", "Status Badge");
+  const { output, index } = await buildFixture({
+    items: { "status-badge": catalogRecord([version], "1.0.0") },
+  });
+  assert.deepEqual(
+    index.items.map((item) => item.name),
+    ["status-badge"],
+  );
+  const built = await readBuiltItem(output, "status-badge", "1.0.0");
+  assert.equal(built.current.title, "Status Badge");
+  assert.deepEqual(built.version, built.current);
+  assert.equal(built.current.files[0].content.includes("1.0.0"), true);
+});
+
+test("production build renders multiple components in name order", async () => {
+  const first = storedVersion("alpha-card", "1.0.0", "Alpha Card");
+  const second = storedVersion("zeta-badge", "2.0.0", "Zeta Badge");
+  const { index } = await buildFixture({
+    items: {
+      "zeta-badge": catalogRecord([second], "2.0.0"),
+      "alpha-card": catalogRecord([first], "1.0.0"),
+    },
+  });
+  assert.deepEqual(
+    index.items.map((item) => item.name),
+    ["alpha-card", "zeta-badge"],
+  );
+  assert.deepEqual(
+    index.items.map((item) => item.title),
+    ["Alpha Card", "Zeta Badge"],
+  );
+});
+
+test("production build keeps every version and serves the selected current snapshot", async () => {
+  const older = storedVersion("status-badge", "1.0.0", "Status Badge");
+  const newer = storedVersion("status-badge", "1.1.0", "Status Badge 2");
+  const catalog = { items: { "status-badge": catalogRecord([older, newer], "1.0.0") } };
+  const { output, index } = await buildFixture(catalog);
+  assert.equal(index.items[0].title, "Status Badge");
+  const current = await readBuiltItem(output, "status-badge", "1.0.0");
+  const newerBuilt = JSON.parse(await readFile(path.join(output, "status-badge", "1.1.0.json"), "utf8"));
+  assert.equal(current.current.title, "Status Badge");
+  assert.equal(current.version.files[0].content.includes("1.0.0"), true);
+  assert.equal(newerBuilt.title, "Status Badge 2");
+  assert.equal(newerBuilt.files[0].content.includes("1.1.0"), true);
+});
+
+test("production build follows a rollback without deleting retained snapshots", async () => {
+  const first = validatePublication(publication());
+  const second = validatePublication(
+    publication({
+      item: { ...publication().item, title: "Status Badge 2" },
+      source: { ...publication().source, version: "1.1.0" },
+    }),
+  );
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  const published = applyPublication(emptyCatalog(), first.snapshot, "2026-10-22T00:00:00.000Z");
+  const updated = applyPublication(published.catalog, second.snapshot, "2026-10-22T01:00:00.000Z");
+  const rolled = rollbackPublication(updated.catalog, "status-badge", "1.0.0");
+  assert.equal(rolled.ok, true);
+  assert.equal(rolled.catalog.items["status-badge"].current, "1.0.0");
+  assert.ok(rolled.catalog.items["status-badge"].versions["1.1.0"]);
+
+  const { output, index } = await buildFixture(rolled.catalog);
+  assert.equal(index.items[0].title, "Status Badge");
+  const current = await readBuiltItem(output, "status-badge", "1.0.0");
+  const retained = JSON.parse(await readFile(path.join(output, "status-badge", "1.1.0.json"), "utf8"));
+  assert.equal(current.current.title, "Status Badge");
+  assert.equal(retained.title, "Status Badge 2");
+  assert.equal(containsPrivateKey(current.current), false);
+  assert.equal(JSON.stringify(current.current).includes(repositoryUrl), false);
 });
 
 test("rollback without a publisher token does not change the catalog", async () => {
