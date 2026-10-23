@@ -28,6 +28,35 @@
           "sourceUrl": "https://www.tracewise.dev/r/tracewise-status-badge.json"
         }
       }
+    },
+    "tracewise-status-indicator": {
+      "current": "0.1.5",
+      "versions": {
+        "0.1.5": {
+          "version": "0.1.5",
+          "publishedAt": "2026-10-23T11:56:50.726Z",
+          "hash": "2ba2210ec04affab7aaaf9746667a7dbffb34779a5ba12f9e370436619dd8a2b",
+          "item": {
+            "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+            "name": "tracewise-status-indicator",
+            "type": "registry:component",
+            "title": "TraceWise Status Indicator",
+            "files": [
+              {
+                "path": "registry/default/tracewise-status-indicator/tracewise-status-indicator.tsx",
+                "type": "registry:component",
+                "content": "\"use client\";\n\nimport {\n  TraceWiseStatus,\n  type TraceWiseStatusProps,\n} from \"@razorsoft/tracewise-status\";\n\nexport type TraceWiseStatusIndicatorProps = Omit<TraceWiseStatusProps, \"variant\">;\n\n/**\n * Inline TraceWise status indicator.\n * Fetches the public status page once. No API key. Polling stays off unless `refreshInterval` is set.\n */\nexport function TraceWiseStatusIndicator({\n  className,\n  ...props\n}: TraceWiseStatusIndicatorProps) {\n  return (\n    <TraceWiseStatus {...props} className={className} variant=\"indicator\" />\n  );\n}\n"
+              }
+            ],
+            "description": "Inline live status indicator for a public TraceWise status page. React component from @razorsoft/tracewise-status. The same indicator is in @razorsoft/tracewise-status-js and the HTML embed. No API key.",
+            "dependencies": [
+              "@razorsoft/tracewise-status@^0.1.1"
+            ]
+          },
+          "contentDigest": "1ac646f85b0a60f18ab8d8d5caaa53597bb1876b00415b21082c45d64fe69344",
+          "sourceUrl": "https://www.tracewise.dev/r/tracewise-status-indicator.json"
+        }
+      }
     }
   }
 }
