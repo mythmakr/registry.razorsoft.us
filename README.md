@@ -75,6 +75,8 @@ Public-manifest publications name the mode explicitly. They require the public H
 
 The stored public item is the shadcn snapshot only. A public-manifest version also retains `sourceUrl` and `contentDigest` in the catalog record. Public item responses omit both. The same name, version, content, and digest returns the existing snapshot. The same version with different content or a different digest is rejected. `POST /api/publications/rollback` with `{ "name", "version" }` makes a retained snapshot current again.
 
+Acceptance is not publication. A successful write returns `status: "accepted"` with the public item name, version, current URL, versioned URL, sha256 `contentHash` of the public item, and the registry repository commit SHA that Vercel deploys. The product repository URL and product commit are not returned. The public routes serve the snapshot only after that commit is deployed.
+
 Both publication routes require `REGISTRY_PUBLISH_TOKEN`. Writes also require `REGISTRY_GITHUB_TOKEN` with contents access to `mythmakr/registry.razorsoft.us` and `REGISTRY_GITHUB_REPOSITORY=mythmakr/registry.razorsoft.us`. A write commits `data/catalog.json` on `main`; the next deployment serves it. Until those values are set, publication routes return 503 and the public index remains available.
 
 ## Deployment

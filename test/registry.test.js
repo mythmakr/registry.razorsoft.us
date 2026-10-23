@@ -80,11 +80,23 @@ test("publication is idempotent and rejects a changed snapshot for the same vers
   );
 
   assert.equal(first.status, 201);
+  assert.equal(first.body.status, "accepted");
   assert.equal(first.body.idempotent, false);
+  assert.equal(first.body.name, "status-badge");
+  assert.equal(first.body.version, "1.0.0");
   assert.equal(first.body.url, "https://registry.razorsoft.us/r/status-badge.json");
+  assert.equal(first.body.versionUrl, "https://registry.razorsoft.us/r/status-badge/1.0.0.json");
+  assert.match(first.body.contentHash, /^[0-9a-f]{64}$/);
+  assert.equal(first.body.registryCommitSha, "c".repeat(40));
+  assert.equal(first.body.deployment.provider, "vercel");
+  assert.equal(first.body.deployment.repository, "mythmakr/registry.razorsoft.us");
+  assert.equal(first.body.deployment.commitSha, first.body.registryCommitSha);
   assert.equal(JSON.stringify(first.body).includes(repositoryUrl), false);
+  assert.equal(JSON.stringify(first.body).includes("7891a157b069ca477aca05fce04d01d4e3405f9f"), false);
   assert.equal(second.status, 200);
+  assert.equal(second.body.status, "accepted");
   assert.equal(second.body.idempotent, true);
+  assert.equal(second.body.contentHash, first.body.contentHash);
   assert.equal(changed.status, 409);
   const catalog = await store.readCatalog();
   assert.equal(catalog.items["status-badge"].versions["1.0.0"].publishedAt, "2026-10-22T00:00:00.000Z");
@@ -255,7 +267,9 @@ test("github storage refuses private repository fields", async () => {
   const calls = [];
   const fetchImpl = async (url, options = {}) => {
     calls.push({ url, options });
-    if (options.method === "PUT") return { ok: true, status: 201, json: async () => ({}) };
+    if (options.method === "PUT") {
+      return { ok: true, status: 201, json: async () => ({ commit: { sha: "d".repeat(40) } }) };
+    }
     return { ok: false, status: 404, json: async () => ({}) };
   };
   const store = createGitHubCatalogStore({
@@ -265,7 +279,8 @@ test("github storage refuses private repository fields", async () => {
   });
   const validated = validatePublication(publication());
   const applied = applyPublication(emptyCatalog(), validated.snapshot, "2026-10-22T00:00:00.000Z");
-  await store.writeCatalog(applied.catalog);
+  const written = await store.writeCatalog(applied.catalog);
+  assert.equal(written.commitSha, "d".repeat(40));
   const put = calls.find((call) => call.options.method === "PUT");
   const stored = JSON.parse(Buffer.from(JSON.parse(put.options.body).content, "base64").toString("utf8"));
   assert.equal(containsPrivateKey(stored), false);

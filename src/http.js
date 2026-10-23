@@ -1,4 +1,6 @@
-import { applyPublication, authorizePublication, renderIndex, renderItem, rollbackPublication, validatePublication } from "./catalog.js";
+import { REGISTRY_ORIGIN, applyPublication, authorizePublication, renderIndex, renderItem, rollbackPublication, validatePublication } from "./catalog.js";
+
+const REGISTRY_REPOSITORY = "mythmakr/registry.razorsoft.us";
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -51,6 +53,25 @@ export function handleRegistryGet(request, catalog) {
   return { status: 200, headers: publicHeaders(), body: item };
 }
 
+function acceptedReceipt(applied, commitSha) {
+  if (typeof commitSha !== "string" || !/^[0-9a-f]{40}$/.test(commitSha) || typeof applied.hash !== "string") return null;
+  return {
+    status: "accepted",
+    name: applied.name,
+    version: applied.version,
+    idempotent: applied.idempotent,
+    url: `${REGISTRY_ORIGIN}/r/${applied.name}.json`,
+    versionUrl: `${REGISTRY_ORIGIN}/r/${applied.name}/${applied.version}.json`,
+    contentHash: applied.hash,
+    registryCommitSha: commitSha,
+    deployment: {
+      provider: "vercel",
+      repository: REGISTRY_REPOSITORY,
+      commitSha,
+    },
+  };
+}
+
 export async function handlePublication(request, env, store, now = () => new Date()) {
   if (request.method !== "POST") {
     return { status: 405, headers: privateHeaders(), body: { error: "Method not allowed." } };
@@ -68,17 +89,15 @@ export async function handlePublication(request, env, store, now = () => new Dat
   const current = await store.readCatalog();
   const applied = applyPublication(current, validated.snapshot, now().toISOString());
   if (!applied.ok) return { status: applied.status, headers: privateHeaders(), body: { error: applied.error } };
-  if (!applied.idempotent) await store.writeCatalog(applied.catalog);
+  const recorded = applied.idempotent ? await store.headCommit() : await store.writeCatalog(applied.catalog);
+  const receipt = acceptedReceipt(applied, recorded?.commitSha);
+  if (!receipt) {
+    return { status: 500, headers: privateHeaders(), body: { error: "The registry did not record a commit." } };
+  }
   return {
     status: applied.status,
     headers: privateHeaders(),
-    body: {
-      status: applied.idempotent ? "published" : "published",
-      name: applied.name,
-      version: applied.version,
-      idempotent: applied.idempotent,
-      url: `https://registry.razorsoft.us/r/${applied.name}.json`,
-    },
+    body: receipt,
   };
 }
 

@@ -199,6 +199,7 @@ export function applyPublication(catalog, snapshot, publishedAt) {
       catalog,
       name: snapshot.item.name,
       version: snapshot.version,
+      hash: snapshot.hash,
     };
   }
   record.versions[snapshot.version] = {
@@ -219,6 +220,7 @@ export function applyPublication(catalog, snapshot, publishedAt) {
     catalog: next,
     name: snapshot.item.name,
     version: snapshot.version,
+    hash: snapshot.hash,
   };
 }
 

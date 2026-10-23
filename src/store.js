@@ -6,14 +6,20 @@ export async function readBundledCatalog(catalogPath) {
   return JSON.parse(text);
 }
 
+const MEMORY_COMMIT = "c".repeat(40);
+
 export function createMemoryCatalogStore(initial = { items: {} }) {
   let catalog = structuredClone(initial);
   return {
     async readCatalog() {
       return structuredClone(catalog);
     },
+    async headCommit() {
+      return { commitSha: MEMORY_COMMIT };
+    },
     async writeCatalog(next) {
       catalog = structuredClone(next);
+      return { commitSha: MEMORY_COMMIT };
     },
   };
 }

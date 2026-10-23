@@ -20,7 +20,16 @@ export function createGitHubCatalogStore({
   };
   const contentsUrl = `${GITHUB_API}/repos/${repository}/contents/${path}`;
 
+  async function headCommit() {
+    const response = await fetchImpl(`${GITHUB_API}/repos/${repository}/commits/${encodeURIComponent(branch)}`, { headers });
+    if (!response.ok) throw new Error(`GitHub commit lookup failed with ${response.status}.`);
+    const sha = commitSha(await response.json());
+    if (!sha) throw new Error("GitHub did not return a catalog commit.");
+    return { commitSha: sha };
+  }
+
   return {
+    headCommit,
     async readCatalog() {
       const response = await fetchImpl(`${contentsUrl}?ref=${encodeURIComponent(branch)}`, { headers });
       if (response.status === 404) return { items: {} };
@@ -38,7 +47,7 @@ export function createGitHubCatalogStore({
         const payload = await current.json();
         sha = payload.sha;
         const existing = Buffer.from(payload.content, "base64").toString("utf8");
-        if (existing === `${JSON.stringify(catalog, null, 2)}\n`) return;
+        if (existing === `${JSON.stringify(catalog, null, 2)}\n`) return headCommit();
       } else if (current.status !== 404) {
         throw new Error(`GitHub catalog read failed with ${current.status}.`);
       }
@@ -53,6 +62,14 @@ export function createGitHubCatalogStore({
         }),
       });
       if (!response.ok) throw new Error(`GitHub catalog write failed with ${response.status}.`);
+      const written = commitSha(await response.json());
+      if (!written) throw new Error("GitHub catalog write did not return a commit.");
+      return { commitSha: written };
     },
   };
+}
+
+function commitSha(payload) {
+  const sha = payload?.commit?.sha ?? payload?.sha;
+  return typeof sha === "string" && /^[0-9a-f]{40}$/.test(sha) ? sha : null;
 }
