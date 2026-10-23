@@ -30,6 +30,8 @@ Authorization: Bearer <REGISTRY_PUBLISH_TOKEN>
 Content-Type: application/json
 ```
 
+Repository publications keep the original source shape. `source.mode` may be omitted or `repository`. `source.repositoryUrl` and a 40-character `source.commitSha` are required, validated, and then discarded.
+
 ```json
 {
   "contract": "razorsoft.registry.publication",
@@ -44,6 +46,7 @@ Content-Type: application/json
     "files": [{ "path": "registry/status-badge.tsx", "content": "export const badge = true;\n" }]
   },
   "source": {
+    "mode": "repository",
     "repositoryUrl": "https://github.com/owner/repository",
     "commitSha": "7891a157b069ca477aca05fce04d01d4e3405f9f",
     "version": "1.0.0"
@@ -51,7 +54,20 @@ Content-Type: application/json
 }
 ```
 
-`source.repositoryUrl` and `source.commitSha` are validated and then discarded. The stored snapshot and every public response contain the shadcn item and version only. The same name, version, and public content returns the existing snapshot. The same version with different content is rejected. `POST /api/publications/rollback` with `{ "name", "version" }` makes a retained snapshot current again.
+Public-manifest publications name the mode explicitly. They require the public HTTPS source URL, the sha256 digest of the fetched body, and the release version. They cannot include a repository URL or commit SHA.
+
+```json
+{
+  "source": {
+    "mode": "public-manifest",
+    "sourceUrl": "https://www.example.com/r/status-badge.json",
+    "contentDigest": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "version": "1.0.0"
+  }
+}
+```
+
+The stored public item is the shadcn snapshot only. A public-manifest version also retains `sourceUrl` and `contentDigest` in the catalog record. Public item responses omit both. The same name, version, content, and digest returns the existing snapshot. The same version with different content or a different digest is rejected. `POST /api/publications/rollback` with `{ "name", "version" }` makes a retained snapshot current again.
 
 Both publication routes require `REGISTRY_PUBLISH_TOKEN`. Writes also require `REGISTRY_GITHUB_TOKEN` with contents access to `mythmakr/registry.razorsoft.us` and `REGISTRY_GITHUB_REPOSITORY=mythmakr/registry.razorsoft.us`. A write commits `data/catalog.json` on `main`; the next deployment serves it. Until those values are set, publication routes return 503 and the public index remains available.
 

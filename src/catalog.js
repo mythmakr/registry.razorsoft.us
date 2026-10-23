@@ -19,6 +19,7 @@ const ITEM_TYPES = new Set([
 const NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const COMMIT_PATTERN = /^[0-9a-f]{40}$/;
+const DIGEST_PATTERN = /^[0-9a-f]{64}$/;
 
 const PRIVATE_KEYS = new Set([
   "repositoryurl",
@@ -142,16 +143,8 @@ export function validatePublication(body) {
     });
   }
 
-  const version = body.source.version;
-  if (typeof version !== "string" || !VERSION_PATTERN.test(version)) {
-    return publicationError(400, "The publication version must be semantic.");
-  }
-  if (typeof body.source.commitSha !== "string" || !COMMIT_PATTERN.test(body.source.commitSha)) {
-    return publicationError(400, "The publication commit is not a 40-character SHA.");
-  }
-  if (typeof body.source.repositoryUrl !== "string" || !body.source.repositoryUrl.trim()) {
-    return publicationError(400, "The publication source repository is required.");
-  }
+  const source = validateSource(body.source);
+  if (!source.ok) return source;
 
   const item = {
     $schema: "https://ui.shadcn.com/schema/registry-item.json",
@@ -168,10 +161,14 @@ export function validatePublication(body) {
   if (lists[2].values?.length) item.registryDependencies = lists[2].values;
 
   const snapshot = {
-    version,
+    version: source.version,
     hash: createHash("sha256").update(canonical(item)).digest("hex"),
     item,
   };
+  if (source.mode === "public-manifest") {
+    snapshot.sourceUrl = source.sourceUrl;
+    snapshot.contentDigest = source.contentDigest;
+  }
   if (containsPrivateKey(snapshot)) {
     return publicationError(400, "The public snapshot still contains private repository information.");
   }
@@ -183,7 +180,11 @@ export function applyPublication(catalog, snapshot, publishedAt) {
   const record = next.items[snapshot.item.name] ?? { current: null, versions: {} };
   const existing = record.versions[snapshot.version];
   if (existing) {
-    if (existing.hash !== snapshot.hash) {
+    const digestChanged =
+      existing.contentDigest &&
+      snapshot.contentDigest &&
+      existing.contentDigest !== snapshot.contentDigest;
+    if (existing.hash !== snapshot.hash || digestChanged) {
       return {
         ok: false,
         status: 409,
@@ -204,6 +205,9 @@ export function applyPublication(catalog, snapshot, publishedAt) {
     publishedAt,
     hash: snapshot.hash,
     item: snapshot.item,
+    ...(snapshot.contentDigest
+      ? { contentDigest: snapshot.contentDigest, sourceUrl: snapshot.sourceUrl }
+      : {}),
   };
   record.current = snapshot.version;
   next.items[snapshot.item.name] = record;
@@ -260,6 +264,79 @@ export function containsPrivateKey(value) {
   if (Array.isArray(value)) return value.some(containsPrivateKey);
   if (!isObject(value)) return false;
   return Object.entries(value).some(([key, child]) => PRIVATE_KEYS.has(key.toLowerCase()) || containsPrivateKey(child));
+}
+
+function validateSource(source) {
+  if (!isObject(source)) return publicationError(400, "The publication source is required.");
+  if (source.mode === "public-manifest") return validatePublicManifestSource(source);
+  if (source.mode !== undefined && source.mode !== "repository") {
+    return publicationError(400, "The publication source mode is not supported.");
+  }
+  if ("sourceUrl" in source || "contentDigest" in source) {
+    return publicationError(400, "A repository publication cannot include public manifest provenance.");
+  }
+  const version = source.version;
+  if (typeof version !== "string" || !VERSION_PATTERN.test(version)) {
+    return publicationError(400, "The publication version must be semantic.");
+  }
+  if (typeof source.commitSha !== "string" || !COMMIT_PATTERN.test(source.commitSha)) {
+    return publicationError(400, "The publication commit is not a 40-character SHA.");
+  }
+  if (typeof source.repositoryUrl !== "string" || !source.repositoryUrl.trim()) {
+    return publicationError(400, "The publication source repository is required.");
+  }
+  return { ok: true, mode: "repository", version };
+}
+
+function validatePublicManifestSource(source) {
+  if ("repositoryUrl" in source || "commitSha" in source || "repository" in source || "commit" in source) {
+    return publicationError(400, "A public manifest publication cannot include repository provenance.");
+  }
+  const version = source.version;
+  if (typeof version !== "string" || !VERSION_PATTERN.test(version)) {
+    return publicationError(400, "The publication version must be semantic.");
+  }
+  let sourceUrl;
+  try {
+    sourceUrl = new URL(source.sourceUrl);
+  } catch {
+    return publicationError(400, "The public manifest source URL is not valid.");
+  }
+  const host = sourceUrl.hostname.toLowerCase();
+  if (
+    sourceUrl.protocol !== "https:" ||
+    sourceUrl.username ||
+    sourceUrl.password ||
+    sourceUrl.port ||
+    sourceUrl.search ||
+    sourceUrl.hash ||
+    host === "localhost" ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal") ||
+    host === "github.com" ||
+    host.endsWith(".github.com") ||
+    host.endsWith(".githubusercontent.com") ||
+    netIsIp(host)
+  ) {
+    return publicationError(400, "The public manifest source URL is not an approved https URL.");
+  }
+  if (typeof source.contentDigest !== "string" || !DIGEST_PATTERN.test(source.contentDigest)) {
+    return publicationError(400, "The public manifest content digest must be a sha256 hex digest.");
+  }
+  const leak = assertPublicText(sourceUrl.toString(), "The public manifest source");
+  if (leak) return publicationError(400, leak);
+  return {
+    ok: true,
+    mode: "public-manifest",
+    version,
+    sourceUrl: sourceUrl.toString(),
+    contentDigest: source.contentDigest,
+  };
+}
+
+function netIsIp(host) {
+  if (host.startsWith("[") && host.endsWith("]")) return true;
+  return /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host) || host.includes(":");
 }
 
 function indexEntry(item) {

@@ -147,6 +147,102 @@ test("rollback restores an older snapshot without deleting versions", async () =
   assert.equal(renderIndex(catalog).items[0].title, "Status Badge");
 });
 
+function publicManifest(overrides = {}) {
+  return {
+    contract: "razorsoft.registry.publication",
+    contractVersion: 1,
+    registryHost: "registry.razorsoft.us",
+    item: {
+      name: "tracewise-status-badge",
+      type: "registry:component",
+      title: "Status Badge",
+      description: "A public status badge.",
+      dependencies: ["@razorsoft/tracewise-status@^0.1.1"],
+      files: [
+        {
+          path: "registry/default/tracewise-status-badge/tracewise-status-badge.tsx",
+          content: "export { StatusBadge } from \"@razorsoft/tracewise-status\";\n",
+        },
+      ],
+    },
+    source: {
+      mode: "public-manifest",
+      sourceUrl: "https://www.tracewise.dev/r/tracewise-status-badge.json",
+      contentDigest: "ab".repeat(32),
+      version: "0.1.5",
+    },
+    ...overrides,
+  };
+}
+
+test("public-manifest provenance does not require a repository or commit", async () => {
+  const missingSha = validatePublication(publication({ source: { repositoryUrl, version: "1.0.0" } }));
+  assert.equal(missingSha.ok, false);
+  assert.match(missingSha.error, /40-character SHA/);
+
+  const invented = validatePublication(
+    publicManifest({
+      source: {
+        mode: "public-manifest",
+        sourceUrl: "https://www.tracewise.dev/r/tracewise-status-badge.json",
+        contentDigest: "ab".repeat(32),
+        version: "0.1.5",
+        commitSha: "a".repeat(40),
+      },
+    }),
+  );
+  assert.equal(invented.ok, false);
+  assert.match(invented.error, /cannot include repository provenance/);
+
+  const validated = validatePublication(publicManifest());
+  assert.equal(validated.ok, true);
+  assert.equal(validated.snapshot.item.name, "tracewise-status-badge");
+  assert.equal(validated.snapshot.sourceUrl, "https://www.tracewise.dev/r/tracewise-status-badge.json");
+  assert.equal(validated.snapshot.contentDigest, "ab".repeat(32));
+  assert.equal(JSON.stringify(validated.snapshot).includes("repositoryUrl"), false);
+  assert.equal(JSON.stringify(validated.snapshot).includes("commitSha"), false);
+  assert.equal(containsPrivateKey(validated.snapshot), false);
+
+  const store = createMemoryCatalogStore();
+  const env = { REGISTRY_PUBLISH_TOKEN: token };
+  const headers = { authorization: `Bearer ${token}` };
+  const denied = await handlePublication({ method: "POST", headers: {}, body: publicManifest() }, env, store);
+  assert.equal(denied.status, 401);
+  const first = await handlePublication({ method: "POST", headers, body: publicManifest() }, env, store);
+  const second = await handlePublication({ method: "POST", headers, body: publicManifest() }, env, store);
+  const changed = await handlePublication(
+    {
+      method: "POST",
+      headers,
+      body: publicManifest({
+        source: {
+          mode: "public-manifest",
+          sourceUrl: "https://www.tracewise.dev/r/tracewise-status-badge.json",
+          contentDigest: "cd".repeat(32),
+          version: "0.1.5",
+        },
+      }),
+    },
+    env,
+    store,
+  );
+  assert.equal(first.status, 201);
+  assert.equal(second.status, 200);
+  assert.equal(second.body.idempotent, true);
+  assert.equal(changed.status, 409);
+  const catalog = await store.readCatalog();
+  const item = renderItem(catalog, "tracewise-status-badge");
+  assert.equal(item.name, "tracewise-status-badge");
+  assert.equal(JSON.stringify(item).includes("tracewise.dev"), false);
+  assert.equal(JSON.stringify(item).includes("contentDigest"), false);
+  const rolled = await handleRollback(
+    { method: "POST", headers, body: { name: "tracewise-status-badge", version: "0.1.5" } },
+    env,
+    store,
+  );
+  assert.equal(rolled.body.idempotent, true);
+});
+
 test("validation rejects an incomplete contract", () => {
   const invalid = validatePublication({ contract: "other" });
   assert.equal(invalid.ok, false);
