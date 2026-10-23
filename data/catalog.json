@@ -1,3 +1,33 @@
 {
-  "items": {}
+  "items": {
+    "tracewise-status-badge": {
+      "current": "0.1.5",
+      "versions": {
+        "0.1.5": {
+          "version": "0.1.5",
+          "publishedAt": "2026-10-23T10:34:50.047Z",
+          "hash": "55f1dd0584aba06e6959aba2ca8d7d07ecca061e273f1e042f337fe3c2258867",
+          "item": {
+            "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+            "name": "tracewise-status-badge",
+            "type": "registry:component",
+            "title": "TraceWise Status Badge",
+            "files": [
+              {
+                "path": "registry/default/tracewise-status-badge/tracewise-status-badge.tsx",
+                "type": "registry:component",
+                "content": "\"use client\";\n\nimport {\n  TraceWiseStatus,\n  type TraceWiseStatusProps,\n} from \"@razorsoft/tracewise-status\";\n\nexport type TraceWiseStatusBadgeProps = Omit<TraceWiseStatusProps, \"variant\">;\n\n/**\n * Compact TraceWise status badge.\n * Fetches the public status page once. No API key. Polling stays off unless `refreshInterval` is set.\n */\nexport function TraceWiseStatusBadge({\n  className,\n  ...props\n}: TraceWiseStatusBadgeProps) {\n  return <TraceWiseStatus {...props} className={className} variant=\"badge\" />;\n}\n"
+              }
+            ],
+            "description": "Compact live status badge for a public TraceWise status page. React component from @razorsoft/tracewise-status. The same badge is in @razorsoft/tracewise-status-js and the HTML embed. No API key.",
+            "dependencies": [
+              "@razorsoft/tracewise-status@^0.1.1"
+            ]
+          },
+          "contentDigest": "27e7f1228d8d0204bf03488fd2c1d4f6e66b0028eaf5641f9736a2c47e8ebb3e",
+          "sourceUrl": "https://www.tracewise.dev/r/tracewise-status-badge.json"
+        }
+      }
+    }
+  }
 }
